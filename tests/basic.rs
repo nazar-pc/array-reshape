@@ -1,6 +1,6 @@
 //! Tests for all reshaping functions and methods
 
-use array_reshape::{Flatten, Rechunk, Unflatten};
+use array_reshape::{Flatten, FlattenEach, Rechunk, RechunkEach, Unflatten, UnflattenEach};
 use core::cell::Cell;
 use core::marker::PhantomData;
 
@@ -140,4 +140,38 @@ fn methods() {
     // Output length is inferred from the context
     let inferred: &[u16; 6] = array.flatten_ref();
     assert_eq!(inferred, &[1, 2, 3, 7, 5, 8]);
+}
+
+#[test]
+fn each() {
+    let mut bytes = [[1_u8, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]];
+
+    let pairs: &[[[u8; 2]; 2]] = array_reshape::unflatten_each_ref(&bytes);
+    assert_eq!(
+        pairs,
+        &[[[1, 2], [3, 4]], [[5, 6], [7, 8]], [[9, 10], [11, 12]]]
+    );
+    assert_eq!(array_reshape::flatten_each_ref::<_, 2, 2, 4>(pairs), &bytes);
+    assert_eq!(
+        array_reshape::rechunk_each_ref::<_, 2, 2, 1, 4>(pairs),
+        &[
+            [[1], [2], [3], [4]],
+            [[5], [6], [7], [8]],
+            [[9], [10], [11], [12]]
+        ]
+    );
+
+    bytes.unflatten_each_mut::<2, 2>()[1][0][1] = 13;
+    assert_eq!(bytes[1], [5, 13, 7, 8]);
+
+    let mut chunks = [[[1_u16; 2]; 3]; 2];
+    chunks.flatten_each_mut::<6>()[1][5] = 2;
+    assert_eq!(chunks[1][2], [1, 2]);
+    chunks.rechunk_each_mut::<3, 2>()[0][1][2] = 3;
+    assert_eq!(chunks[0][2], [1, 3]);
+    assert_eq!(chunks.flatten_each_ref::<6>()[1], [1, 1, 1, 1, 1, 2]);
+    assert_eq!(chunks.rechunk_each_ref::<6, 1>()[0], [[1, 1, 1, 1, 1, 3]]);
+
+    let empty: &[[[u8; 2]; 2]] = <[[u8; 4]]>::unflatten_each_ref(&[]);
+    assert_eq!(empty, [[[0_u8; 2]; 2]; 0]);
 }

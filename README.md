@@ -24,9 +24,11 @@ let pairs_again = flat.unflatten::<2, 3>();
 assert_eq!(pairs_again, pairs);
 ```
 
+Slices of arrays can be reshaped element by element with `flatten_each_ref()`, `unflatten_each_ref()` and
+`rechunk_each_ref()` (and their `_mut` variants).
+
 Every conversion is also available as a free `const fn` (like `array_reshape::flatten_ref()`) that works in `const`
-context on stable Rust. With `const-trait` feature, which requires nightly Rust, `Flatten`, `Rechunk` and `Unflatten`
-become `const trait`s, so their methods can be called in `const fn` directly.
+context on stable Rust. With `const-trait` feature, which requires nightly Rust, all traits become `const trait`s, so their methods can be called in `const fn` directly.
 
 Stable Rust doesn't allow computing array lengths from generic constants yet, so the length of the output is a separate
 generic parameter, which is usually inferred from the context. The lengths are checked at compile time, but since the

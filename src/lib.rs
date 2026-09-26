@@ -23,6 +23,20 @@
 //! assert_eq!(pairs_again, pairs);
 //! ```
 //!
+//! Slices of arrays can be reshaped element by element too:
+//!
+//! ```
+//! use array_reshape::{FlattenEach, UnflattenEach};
+//!
+//! let bytes = [[1, 2, 3, 4], [5, 6, 7, 8]];
+//!
+//! let pairs = bytes.unflatten_each_ref::<2, 2>();
+//! assert_eq!(pairs, &[[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
+//!
+//! let bytes_again: &[[u8; 4]] = pairs.flatten_each_ref();
+//! assert_eq!(bytes_again, &bytes);
+//! ```
+//!
 //! # `const fn` support
 //!
 //! Trait methods can't be called in `const fn` on stable Rust, which is why every conversion is
@@ -33,9 +47,9 @@
 //! assert_eq!(FLAT, [1, 2, 3, 4]);
 //! ```
 //!
-//! With the `const-trait` feature, which requires nightly Rust, [`Flatten`], [`Rechunk`] and
-//! [`Unflatten`] become `const trait`s, so their methods can be called in `const fn` directly.
-//! Crates calling them in `const fn` need to enable `const_trait_impl` feature themselves.
+//! With the `const-trait` feature, which requires nightly Rust, all traits become `const trait`s,
+//! so their methods can be called in `const fn` directly. Crates calling them in `const fn` need to
+//! enable `const_trait_impl` feature themselves.
 //!
 //! # Output length
 //!
@@ -59,7 +73,7 @@
 //! [`<[T]>::as_array()`](slice::as_array)).
 
 use core::mem::ManuallyDrop;
-use core::{mem, ptr};
+use core::{mem, ptr, slice};
 
 /// Checks at compile time that `inner * outer == len`
 #[inline(always)]
@@ -173,6 +187,74 @@ pub const fn rechunk_mut<T, const A: usize, const B: usize, const C: usize, cons
     unsafe { &mut *ptr::from_mut(array).cast::<[[T; C]; D]>() }
 }
 
+/// Flatten each element of `&[[[T; N]; M]]` to get `&[[T; K]]`, where `K == N * M`
+#[inline(always)]
+pub const fn flatten_each_ref<T, const N: usize, const M: usize, const K: usize>(
+    slice: &[[[T; N]; M]],
+) -> &[[T; K]] {
+    assert_len::<N, M, K>();
+    // SAFETY: The same element type and the same number of elements in each slice element, checked
+    // above
+    unsafe { slice::from_raw_parts(slice.as_ptr().cast::<[T; K]>(), slice.len()) }
+}
+
+/// Flatten each element of `&mut [[[T; N]; M]]` to get `&mut [[T; K]]`, where `K == N * M`
+#[inline(always)]
+pub const fn flatten_each_mut<T, const N: usize, const M: usize, const K: usize>(
+    slice: &mut [[[T; N]; M]],
+) -> &mut [[T; K]] {
+    assert_len::<N, M, K>();
+    // SAFETY: The same element type and the same number of elements in each slice element, checked
+    // above
+    unsafe { slice::from_raw_parts_mut(slice.as_mut_ptr().cast::<[T; K]>(), slice.len()) }
+}
+
+/// Unflatten each element of `&[[T; K]]` to get `&[[[T; N]; M]]`, where `K == N * M`
+#[inline(always)]
+pub const fn unflatten_each_ref<T, const N: usize, const M: usize, const K: usize>(
+    slice: &[[T; K]],
+) -> &[[[T; N]; M]] {
+    assert_len::<N, M, K>();
+    // SAFETY: The same element type and the same number of elements in each slice element, checked
+    // above
+    unsafe { slice::from_raw_parts(slice.as_ptr().cast::<[[T; N]; M]>(), slice.len()) }
+}
+
+/// Unflatten each element of `&mut [[T; K]]` to get `&mut [[[T; N]; M]]`, where `K == N * M`
+#[inline(always)]
+pub const fn unflatten_each_mut<T, const N: usize, const M: usize, const K: usize>(
+    slice: &mut [[T; K]],
+) -> &mut [[[T; N]; M]] {
+    assert_len::<N, M, K>();
+    // SAFETY: The same element type and the same number of elements in each slice element, checked
+    // above
+    unsafe { slice::from_raw_parts_mut(slice.as_mut_ptr().cast::<[[T; N]; M]>(), slice.len()) }
+}
+
+/// Change chunk size of each element of `&[[[T; A]; B]]` to get `&[[[T; C]; D]]`, where
+/// `A * B == C * D`
+#[inline(always)]
+pub const fn rechunk_each_ref<T, const A: usize, const B: usize, const C: usize, const D: usize>(
+    slice: &[[[T; A]; B]],
+) -> &[[[T; C]; D]] {
+    assert_same_total_len::<A, B, C, D>();
+    // SAFETY: The same element type and the same number of elements in each slice element, checked
+    // above
+    unsafe { slice::from_raw_parts(slice.as_ptr().cast::<[[T; C]; D]>(), slice.len()) }
+}
+
+/// Change chunk size of each element of `&mut [[[T; A]; B]]` to get `&mut [[[T; C]; D]]`, where
+/// `A * B == C * D`
+#[inline(always)]
+pub const fn rechunk_each_mut<T, const A: usize, const B: usize, const C: usize, const D: usize>(
+    slice: &mut [[[T; A]; B]],
+) -> &mut [[[T; C]; D]] {
+    assert_same_total_len::<A, B, C, D>();
+    // SAFETY: The same element type and the same number of elements in each slice element, checked
+    // above
+    unsafe { slice::from_raw_parts_mut(slice.as_mut_ptr().cast::<[[T; C]; D]>(), slice.len()) }
+}
+
 /// Checks at compile time that `a * b == c * d`
 #[inline(always)]
 const fn assert_same_total_len<const A: usize, const B: usize, const C: usize, const D: usize>() {
@@ -187,7 +269,7 @@ const fn assert_same_total_len<const A: usize, const B: usize, const C: usize, c
     }
 }
 
-/// Defines [`Flatten`], [`Rechunk`] and [`Unflatten`], optionally as `const trait`s.
+/// Defines reshaping traits, optionally as `const trait`s.
 ///
 /// This is a macro because `const trait` syntax is rejected by stable Rust even in code that is
 /// disabled with `#[cfg]`, but not in unexpanded macro invocations.
@@ -283,6 +365,79 @@ macro_rules! define_traits {
             #[inline(always)]
             fn unflatten_mut<const N: usize, const M: usize>(&mut self) -> &mut [[T; N]; M] {
                 unflatten_mut(self)
+            }
+        }
+        /// Flattening of each element of `[[[T; N]; M]]`, see crate-level documentation for examples.
+        ///
+        /// The same conversions are available as free `const fn`s, see [`flatten_each_ref()`] and
+        /// [`flatten_each_mut()`].
+        pub $($const)? trait FlattenEach<T, const N: usize, const M: usize> {
+            /// Flatten each element to get `&[[T; K]]`, where `K == N * M`
+            fn flatten_each_ref<const K: usize>(&self) -> &[[T; K]];
+
+            /// Flatten each element to get `&mut [[T; K]]`, where `K == N * M`
+            fn flatten_each_mut<const K: usize>(&mut self) -> &mut [[T; K]];
+        }
+
+        $($const)? impl<T, const N: usize, const M: usize> FlattenEach<T, N, M> for [[[T; N]; M]] {
+            #[inline(always)]
+            fn flatten_each_ref<const K: usize>(&self) -> &[[T; K]] {
+                flatten_each_ref(self)
+            }
+
+            #[inline(always)]
+            fn flatten_each_mut<const K: usize>(&mut self) -> &mut [[T; K]] {
+                flatten_each_mut(self)
+            }
+        }
+
+        /// Unflattening of each element of `[[T; K]]`, see crate-level documentation for examples.
+        ///
+        /// The same conversions are available as free `const fn`s, see [`unflatten_each_ref()`]
+        /// and [`unflatten_each_mut()`].
+        pub $($const)? trait UnflattenEach<T, const K: usize> {
+            /// Unflatten each element to get `&[[[T; N]; M]]`, where `K == N * M`
+            fn unflatten_each_ref<const N: usize, const M: usize>(&self) -> &[[[T; N]; M]];
+
+            /// Unflatten each element to get `&mut [[[T; N]; M]]`, where `K == N * M`
+            fn unflatten_each_mut<const N: usize, const M: usize>(&mut self) -> &mut [[[T; N]; M]];
+        }
+
+        $($const)? impl<T, const K: usize> UnflattenEach<T, K> for [[T; K]] {
+            #[inline(always)]
+            fn unflatten_each_ref<const N: usize, const M: usize>(&self) -> &[[[T; N]; M]] {
+                unflatten_each_ref(self)
+            }
+
+            #[inline(always)]
+            fn unflatten_each_mut<const N: usize, const M: usize>(&mut self) -> &mut [[[T; N]; M]] {
+                unflatten_each_mut(self)
+            }
+        }
+
+        /// Changing chunk size of each element of `[[[T; N]; M]]`, see crate-level documentation
+        /// for examples.
+        ///
+        /// The same conversions are available as free `const fn`s, see [`rechunk_each_ref()`] and
+        /// [`rechunk_each_mut()`].
+        pub $($const)? trait RechunkEach<T, const N: usize, const M: usize> {
+            /// Change chunk size of each element to get `&[[[T; C]; D]]`, where `N * M == C * D`
+            fn rechunk_each_ref<const C: usize, const D: usize>(&self) -> &[[[T; C]; D]];
+
+            /// Change chunk size of each element to get `&mut [[[T; C]; D]]`, where
+            /// `N * M == C * D`
+            fn rechunk_each_mut<const C: usize, const D: usize>(&mut self) -> &mut [[[T; C]; D]];
+        }
+
+        $($const)? impl<T, const N: usize, const M: usize> RechunkEach<T, N, M> for [[[T; N]; M]] {
+            #[inline(always)]
+            fn rechunk_each_ref<const C: usize, const D: usize>(&self) -> &[[[T; C]; D]] {
+                rechunk_each_ref(self)
+            }
+
+            #[inline(always)]
+            fn rechunk_each_mut<const C: usize, const D: usize>(&mut self) -> &mut [[[T; C]; D]] {
+                rechunk_each_mut(self)
             }
         }
     };

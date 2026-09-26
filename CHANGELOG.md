@@ -1,3 +1,10 @@
+# 0.1.1
+
+Features:
+* `flatten_each_*()`, `unflatten_each_*()` and `rechunk_each_*()` for the same conversions applied to each element of a
+  slice of arrays
+* Add corresponding `FlattenEach`, `UnflattenEach` and `RechunkEach` traits
+
 # 0.1.0
 
 Initial release.

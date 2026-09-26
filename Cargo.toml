@@ -5,7 +5,7 @@ keywords = ["array", "reshape", "flatten", "const", "no-std"]
 categories = ["rust-patterns", "no-std::no-alloc"]
 repository = "https://github.com/nazar-pc/array-reshape"
 license = "0BSD"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Nazar Mokrynskyi <nazar@mokrynskyi.com>"]
 edition = "2024"
 rust-version = "1.85"
@@ -21,7 +21,7 @@ include = [
 all-features = true
 
 [features]
-# Makes `Flatten`, `Rechunk` and `Unflatten` const traits, requires nightly Rust
+# Makes all traits const traits, requires nightly Rust
 const-trait = []
 
 [lints.rust]
