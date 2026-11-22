@@ -100,6 +100,8 @@ fn const_fns() {
     const CHUNKS: [[u8; 2]; 2] = array_reshape::unflatten([1, 2, 3, 4]);
     const CHUNKS_REF: &[[u8; 1]; 4] = array_reshape::unflatten_ref(&[1, 2, 3, 4]);
     const RECHUNKED: &[[u8; 4]; 1] = array_reshape::rechunk_ref(&[[1, 2], [3, 4]]);
+    const PAIRS: &[[[u8; 2]; 2]; 1] = array_reshape::unflatten_each_array_ref(&[[1, 2, 3, 4]]);
+    const BYTES: &[[u8; 4]; 1] = array_reshape::flatten_each_array_ref(PAIRS);
     const MODIFIED: [[u8; 2]; 2] = {
         let mut array = [[1, 2], [3, 4]];
         array_reshape::flatten_mut::<_, 2, 2, 4>(&mut array)[1] = 5;
@@ -114,6 +116,8 @@ fn const_fns() {
     assert_eq!(CHUNKS, [[1, 2], [3, 4]]);
     assert_eq!(CHUNKS_REF, &[[1], [2], [3], [4]]);
     assert_eq!(RECHUNKED, &[[1, 2, 3, 4]]);
+    assert_eq!(PAIRS, &[[[1, 2], [3, 4]]]);
+    assert_eq!(BYTES, &[[1, 2, 3, 4]]);
     assert_eq!(MODIFIED, [[1, 5], [6, 7]]);
 }
 
@@ -145,13 +149,14 @@ fn methods() {
 #[test]
 fn each() {
     let mut bytes = [[1_u8, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]];
+    let bytes = bytes.as_mut_slice();
 
-    let pairs: &[[[u8; 2]; 2]] = array_reshape::unflatten_each_ref(&bytes);
+    let pairs: &[[[u8; 2]; 2]] = array_reshape::unflatten_each_ref(bytes);
     assert_eq!(
         pairs,
         &[[[1, 2], [3, 4]], [[5, 6], [7, 8]], [[9, 10], [11, 12]]]
     );
-    assert_eq!(array_reshape::flatten_each_ref::<_, 2, 2, 4>(pairs), &bytes);
+    assert_eq!(array_reshape::flatten_each_ref::<_, 2, 2, 4>(pairs), bytes);
     assert_eq!(
         array_reshape::rechunk_each_ref::<_, 2, 2, 1, 4>(pairs),
         &[
@@ -165,6 +170,7 @@ fn each() {
     assert_eq!(bytes[1], [5, 13, 7, 8]);
 
     let mut chunks = [[[1_u16; 2]; 3]; 2];
+    let chunks = chunks.as_mut_slice();
     chunks.flatten_each_mut::<6>()[1][5] = 2;
     assert_eq!(chunks[1][2], [1, 2]);
     chunks.rechunk_each_mut::<3, 2>()[0][1][2] = 3;
@@ -174,4 +180,52 @@ fn each() {
 
     let empty: &[[[u8; 2]; 2]] = <[[u8; 4]]>::unflatten_each_ref(&[]);
     assert_eq!(empty, [[[0_u8; 2]; 2]; 0]);
+}
+
+#[test]
+fn each_array() {
+    let mut bytes = [[1_u8, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]];
+
+    let pairs: &[[[u8; 2]; 2]; 3] = array_reshape::unflatten_each_array_ref(&bytes);
+    assert_eq!(
+        pairs,
+        &[[[1, 2], [3, 4]], [[5, 6], [7, 8]], [[9, 10], [11, 12]]]
+    );
+    assert_eq!(
+        array_reshape::flatten_each_array_ref::<_, 2, 2, 4, 3>(pairs),
+        &bytes
+    );
+    assert_eq!(
+        array_reshape::rechunk_each_array_ref::<_, 2, 2, 1, 4, 3>(pairs),
+        &[
+            [[1], [2], [3], [4]],
+            [[5], [6], [7], [8]],
+            [[9], [10], [11], [12]]
+        ]
+    );
+    array_reshape::unflatten_each_array_mut::<_, 2, 2, 4, 3>(&mut bytes)[1][0][1] = 13;
+    assert_eq!(bytes[1], [5, 13, 7, 8]);
+
+    // Methods called on arrays keep the length in the output type
+    let pairs: &[[[u8; 2]; 2]; 3] = bytes.unflatten_each_ref();
+    assert_eq!(pairs[1], [[5, 13], [7, 8]]);
+
+    let mut chunks = [[[1_u16; 2]; 3]; 2];
+    let flat: &mut [[u16; 6]; 2] = chunks.flatten_each_mut();
+    flat[1][5] = 2;
+    assert_eq!(chunks[1][2], [1, 2]);
+    let rechunked: &mut [[[u16; 3]; 2]; 2] = chunks.rechunk_each_mut();
+    rechunked[0][1][2] = 3;
+    assert_eq!(chunks[0][2], [1, 3]);
+    assert_eq!(
+        chunks.flatten_each_ref::<6>(),
+        &[[1, 1, 1, 1, 1, 3], [1, 1, 1, 1, 1, 2]]
+    );
+    assert_eq!(
+        chunks.rechunk_each_ref::<6, 1>(),
+        &[[[1, 1, 1, 1, 1, 3]], [[1, 1, 1, 1, 1, 2]]]
+    );
+
+    let empty: &[[[u8; 2]; 2]; 0] = [[0_u8; 4]; 0].unflatten_each_ref();
+    assert_eq!(empty, &[[[0_u8; 2]; 2]; 0]);
 }
