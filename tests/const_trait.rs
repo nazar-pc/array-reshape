@@ -13,6 +13,8 @@ fn methods_in_const_fn() {
     const RECHUNKED: [[u8; 1]; 4] = [[1, 2], [3, 4]].rechunk();
     const PAIRS: &[[[u8; 2]; 2]] = [[1, 2, 3, 4]].as_slice().unflatten_each_ref();
     const BYTES: &[[u8; 4]] = PAIRS.flatten_each_ref();
+    const ARRAY_PAIRS: &[[[u8; 2]; 2]; 1] = [[1, 2, 3, 4]].unflatten_each_ref();
+    const ARRAY_BYTES: &[[u8; 4]; 1] = ARRAY_PAIRS.flatten_each_ref();
     const MODIFIED: [u8; 4] = {
         let mut array = [1, 2, 3, 4];
         array.unflatten_mut::<2, 2>()[1][0] = 5;
@@ -26,5 +28,7 @@ fn methods_in_const_fn() {
     assert_eq!(RECHUNKED, [[1], [2], [3], [4]]);
     assert_eq!(PAIRS, &[[[1, 2], [3, 4]]]);
     assert_eq!(BYTES, &[[1, 2, 3, 4]]);
+    assert_eq!(ARRAY_PAIRS, &[[[1, 2], [3, 4]]]);
+    assert_eq!(ARRAY_BYTES, &[[1, 2, 3, 4]]);
     assert_eq!(MODIFIED, [1, 6, 5, 4]);
 }

@@ -1,3 +1,14 @@
+# 0.2.0
+
+Breaking changes:
+* `FlattenEach`, `UnflattenEach` and `RechunkEach` have an associated output type, so that they can be implemented for
+  arrays too; called on arrays, their methods now return arrays instead of slices
+
+Features:
+* `flatten_each_array_*()`, `unflatten_each_array_*()` and `rechunk_each_array_*()` for the same conversions applied to
+  each element of an array of arrays, keeping its length
+* `FlattenEach`, `UnflattenEach` and `RechunkEach` are implemented for arrays
+
 # 0.1.1
 
 Features:

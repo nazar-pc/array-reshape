@@ -24,8 +24,8 @@ let pairs_again = flat.unflatten::<2, 3>();
 assert_eq!(pairs_again, pairs);
 ```
 
-Slices of arrays can be reshaped element by element with `flatten_each_ref()`, `unflatten_each_ref()` and
-`rechunk_each_ref()` (and their `_mut` variants).
+Slices and arrays of arrays can be reshaped element by element with `flatten_each_ref()`, `unflatten_each_ref()` and
+`rechunk_each_ref()` (and their `_mut` variants), arrays keep their length.
 
 Every conversion is also available as a free `const fn` (like `array_reshape::flatten_ref()`) that works in `const`
 context on stable Rust. With `const-trait` feature, which requires nightly Rust, all traits become `const trait`s, so their methods can be called in `const fn` directly.
